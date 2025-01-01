@@ -12,8 +12,7 @@ class ProductCategoryController extends Controller
 {
     public function store() {
         $log = new LogController();
-        if (request()->getMethod() == 'POST')
-        {
+        if (request()->getMethod() == 'POST') {
             $messages = array(
                 'name.required' => 'Nama produk kategori harus di isi',
                 'name.max' => 'Nama produk kategori tidak boleh lebih dari 20 karakter',
@@ -39,7 +38,6 @@ class ProductCategoryController extends Controller
                     DB::table('product_category')
                         ->where('id', request()->id)
                         ->update([
-                            'user_id'               => auth()->user()->id,
                             'name'                  => request()->name,
                             'updated_at'            => Carbon::now()->toDateTimeString(),
                         ]);
@@ -57,7 +55,7 @@ class ProductCategoryController extends Controller
                 if ($routeName == "create-product-category") {
                     // insert to table
                     DB::table('product_category')->insert([
-                        'user_id'               => auth()->user()->id,
+                        'owner_id'              => auth()->user()->id,
                         'name'                  => request()->name,
                         'created_at'            => Carbon::now()->toDateTimeString(),
                     ]);
@@ -78,7 +76,8 @@ class ProductCategoryController extends Controller
                 'message'   =>  request()->id > 0 ? "Produk kategori berhasil diubah" : "Produk kategori berhasil disimpan"
             ], 201);
         } else {
-            $getProductCategories = DB::table('product_category')->get();
+            $getPlace = DB::table('place')->where("id", auth()->user()->place_id)->first();
+            $getProductCategories = DB::table('product_category')->where("owner_id", $getPlace->owner_id)->orderBy('id', 'desc')->get();
             return response()->json([
                 'status'    =>  true,
                 'message'   =>  $getProductCategories->count() > 0 ? "Berhasil mendapatkan semua produk kategori" : "Data produk kategori kosong",
@@ -92,11 +91,20 @@ class ProductCategoryController extends Controller
 
         $findProduct = DB::table('product_category')->where('id', $id)->first();
         if ($findProduct != null) {
-            $hasDelete = DB::table('product_category')->where('id', $id)->delete();
-            if ($hasDelete == 1) {
-                $log->store("product_category", 1, $id, auth()->user()->id, Carbon::now()->toDateTimeString());
+            // ini untuk mengecek apakah product category tersebut digunakan atau tidak
+            $checkUseProCat = DB::table('products')->where("product_category_id", $id)->get();
+            if ($checkUseProCat->count() > 0) {
+                // return ApiResponseClass::sendResponse("Produk kategori ini tidak dapat di hapus karna sedang digunakan pada salah satu produk", 100);
+                return response()->json([
+                    'status'    =>  true,
+                    'message'   =>  "Produk kategori ini tidak dapat di hapus karna sedang digunakan pada salah satu produk"
+                ], 100);
+            } else {
+                $hasDelete = DB::table('product_category')->where('id', $id)->delete();
+                if ($hasDelete == 1) {
+                    $log->store("product_category", 1, $id, auth()->user()->id, Carbon::now()->toDateTimeString());
+                }
             }
-
             return response()->json([
                 'status'    =>  true,
                 'message'   =>  "Produk kategori berhasil dihapus"

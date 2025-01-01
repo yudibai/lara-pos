@@ -8,6 +8,8 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\PlaceController;
+use App\Http\Controllers\CashierController;
+use App\Http\Controllers\BankAccountController;
  
 Route::group([
     'middleware' => 'api',
@@ -50,5 +52,14 @@ Route::group([
         Route::post('/v1/create-customer', [CustomerController::class, 'store'])->middleware('auth:api')->name('create-customer');
         Route::post('/v1/update-customer', [CustomerController::class, 'store'])->middleware('auth:api')->name('update-customer');
         Route::post('/v1/delete-customer', [CustomerController::class, 'delete'])->middleware('auth:api')->name('delete-customer');
+        
+        // cashier
+        Route::get('/v1/product-cashier', [CashierController::class, 'store'])->middleware('auth:api')->name('get-product-cashier');
+
+        // bank account
+        Route::get('/v1/bank-accounts', [BankAccountController::class, 'store'])->middleware('auth:api')->name('get-bank-accounts');
+        Route::post('/v1/create-bank-account', [BankAccountController::class, 'store'])->middleware('auth:api')->name('create-bank-account');
+        Route::post('/v1/update-bank-account', [BankAccountController::class, 'store'])->middleware('auth:api')->name('update-bank-account');
+        Route::post('/v1/delete-bank-account', [BankAccountController::class, 'delete'])->middleware('auth:api')->name('delete-bank-account');
     });
 });

@@ -8,6 +8,10 @@ use Illuminate\Support\Facades\Route; // untuk get route => $routeName = Route::
 use Validator;
 use Carbon\Carbon;
 use App\Http\Controllers\LogController;
+use Illuminate\Support\Str;
+use Intervention\Image\Laravel\Facades\Image;
+use Illuminate\Support\Facades\File;
+use App\Classes\ApiResponseClass;
 
 class ProductController extends Controller
 {
@@ -15,25 +19,25 @@ class ProductController extends Controller
         if (request()->getMethod() == 'POST')
         {
             $messages = array(
-                'product_category_id.required' => 'Produk Category harus di isi',
-                'name.required' => 'Nama produk harus di isi',
-                'name.max' => 'Nama produk tidak boleh lebih dari 40 karakter',
-                'price.required' => 'Harga produk harus di isi',
-                'price.numeric' => 'Harga produk hanya boleh angka',
-                'price.digits_between' => 'Harga produk tidak boleh lebih dari 9 digit',
-                'sku.max' => 'SKU produk tidak boleh lebih dari 15 karakter',
-                'plu.max' => 'PLU produk tidak boleh lebih dari 15 karakter',
-                'capital.numeric' => 'Harga modal produk hanya boleh angka',
-                'capital.digits_between' => 'Harga modal produk tidak boleh lebih dari 9 digit'
+                'name.required'         => 'Nama produk harus di isi',
+                'name.max'              => 'Nama produk tidak boleh lebih dari 40 karakter',
+                'price.required'        => 'Harga produk harus di isi',
+                'price.numeric'         => 'Harga produk hanya boleh angka',
+                'price.digits_between'  => 'Harga produk tidak boleh lebih dari 9 digit',
+                'sku.max'               => 'SKU produk tidak boleh lebih dari 15 karakter',
+                'plu.max'               => 'PLU produk tidak boleh lebih dari 15 karakter',
+                'capital.numeric'       => 'Harga modal produk hanya boleh angka',
+                'capital.digits_between'=> 'Harga modal produk tidak boleh lebih dari 9 digit',
+                // 'image_product.image'   => 'Foto produk hanya bisa mengupload foto saja'
             );
 
             $validator = Validator::make(request()->all(), [
-                'product_category_id'   => 'required',
                 'name'                  => 'required|string|max:40',
                 'price'                 => 'required|numeric|digits_between:1,9',
                 'sku'                   => 'max:15',
                 'plu'                   => 'max:15',
                 'capital'               => 'sometimes|nullable|numeric|digits_between:1,9',
+                // 'image_product'         => 'image|mimes:jpg,jpeg,png|max:2048'
             ], $messages);
 
             if ($validator->fails()) {
@@ -46,7 +50,7 @@ class ProductController extends Controller
 
             // Check if userid and product have before
             // $getNameProductByUserId = DB::table('products')
-            //     ->where('user_id', auth()->user()->id)
+            //     ->where('owner_id', auth()->user()->id)
             //     ->where('product_category_id', request()->product_category_id)
             //     ->where('name', request()->name)
             //     ->first();
@@ -61,7 +65,7 @@ class ProductController extends Controller
 
             // SKU same product
             // $findSameSKU = DB::table('products')
-            //     ->where('user_id', auth()->user()->id)
+            //     ->where('owner_id', auth()->user()->id)
             //     ->where('product_category_id', request()->product_category_id)
             //     ->where('sku', request()->sku)
             //     ->first();
@@ -76,27 +80,90 @@ class ProductController extends Controller
 
 
             if (request()->id > 0) {
-                // update table
+                // update to table
                 $findProduct = DB::table('products')->where('id', request()->id)->first();
                 
                 if ($findProduct != null) {
                     $log = new LogController();
+                    
+                    if (request()->image_product != null) {
+                        $image = Image::read(request()->file('image_product'));
+                        $imageInfo = pathinfo(request()->file('image_product')->getClientOriginalName());
+                        $imageName = time().'.'.$imageInfo['extension'];
+                        $destinationPath = public_path('images/products/');
+                        $image->save($destinationPath.$imageName, 75);
+                    }
+                    
+                    // for show hide product on cashier
+                    $placesId = null;
+                    if ($findProduct->active_by_placeid == null) {
+                        if (request()->show_product == true) {
+                            $placesId = auth()->user()->place_id;
+                        } else {
+                            $placesId = null;
+                        }
+                    } else {
+                        $changeToArray = explode(',', $findProduct->active_by_placeid);
+                        if (in_array(auth()->user()->place_id, $changeToArray)) {
+                            if (request()->show_product == "true" || request()->show_product == true) {
+                                $placesId = $findProduct->active_by_placeid;
+                            } else {
+                                if (count($changeToArray) > 1) {
+                                    $placesId = implode(',', array_diff($changeToArray, [auth()->user()->place_id]));
+                                } else {
+                                    $placesId = null;
+                                }
+                            }
+                        } else {
+                            if (request()->show_product == true) {
+                                $changeToArray[] = auth()->user()->place_id;
+                            }
+                            $placesId = implode(',', $changeToArray);
+                        }
+                    }
 
                     DB::table('products')
                         ->where('id', request()->id)
                         ->update([
-                            'user_id'               => auth()->user()->id,
+                            'owner_id'              => request()->owner_id,
                             'product_category_id'   => request()->product_category_id,
                             'name'                  => request()->name,
                             'price'                 => request()->price,
-                            'image_product'         => request()->image_product,
+                            'image_product'         => request()->image_product != null ? $imageName : null,
                             'sku'                   => request()->sku,
                             'plu'                   => request()->plu,
                             'capital'               => request()->capital,
                             'description'           => request()->description,
                             'active'                => request()->active,
+                            'active_by_placeid'     => $placesId,
                             'updated_at'            => Carbon::now()->toDateTimeString(),
                         ]);
+                    
+                    // ini cek image ada atau tida. jika ada dan maka di image di hapus
+                    if ($findProduct->image_product != null || $findProduct->image_product != "") {
+                        $image_path = public_path()."/images/products/".$findProduct->image_product;
+                        if(File::exists($image_path)) {
+                            File::delete($image_path);
+                        }
+                    }
+                    
+                    // additional detail product
+                    // $findAdditionalDetailProduct = DB::table('additional_detail_product')->where('place_id', auth()->user()->place_id) ->where('product_id', request()->id)->first();
+                    // if ($findAdditionalDetailProduct != null) {
+                    //     DB::table('additional_detail_product')
+                    //         ->where('place_id', auth()->user()->place_id)
+                    //         ->where('product_id', request()->id)
+                    //         ->update([
+                    //             'active'
+                    //         ]);
+                    // } else {
+                    //     DB::table('additional_detail_product')->insert([
+                    //         'product_id'    =>  request()->id,
+                    //         'place_id'      =>  auth()->user()->place_id,
+                    //         'active'        =>  request()->show_product == "true" || request()->show_product == true ? 1 : 0,
+                    //         'stock'         =>  null,
+                    //     ]);
+                    // }
 
                     $log->store("products", 2, request()->id, auth()->user()->id, Carbon::now()->toDateTimeString());
                 } else {
@@ -107,11 +174,11 @@ class ProductController extends Controller
                     ], 422);
                 }
             } else {
+                // insert to table
                 $routeName = Route::currentRouteName();
                 if ($routeName == "create-product") {
-                    // insert to table
                     DB::table('products')->insert([
-                        'user_id'               => auth()->user()->id,
+                        'owner_id'              => request()->owner_id,
                         'product_category_id'   => request()->product_category_id,
                         'name'                  => request()->name,
                         'price'                 => request()->price,
@@ -120,7 +187,8 @@ class ProductController extends Controller
                         'plu'                   => request()->plu,
                         'capital'               => request()->capital,
                         'description'           => request()->description,
-                        'active'                => 1,
+                        'active'                => null,
+                        'active_by_placeid'     => request()->show_product ? auth()->user()->place_id : null,
                         'created_at'            => Carbon::now()->toDateTimeString(),
                     ]);
                     $lastId = DB::getPdo()->lastInsertId();
@@ -135,13 +203,15 @@ class ProductController extends Controller
                     ], 422);
                 }
             }
-    
+            $message = request()->id > 0 ? "Produk berhasil diubah" : "Produk berhasil disimpan";
             return response()->json([
                 'status'    =>  true,
                 'message'   =>  request()->id > 0 ? "Produk berhasil diubah" : "Produk berhasil disimpan"
             ], 201);
         } else {
-            $getProducts = DB::table('products')->get();
+            $getPlace = DB::table('place')->where("id", auth()->user()->place_id)->first();
+            $getProducts = DB::table('products')->where("owner_id", $getPlace->owner_id)->orderBy('id', 'desc')->get();
+            $message = $getProducts->count() > 0 ? "Berhasil mendapatkan semua produk" : "Data produk kosong";
             return response()->json([
                 'status'    =>  true,
                 'message'   =>  $getProducts->count() > 0 ? "Berhasil mendapatkan semua produk" : "Data produk kosong",
@@ -150,7 +220,7 @@ class ProductController extends Controller
         }
     }
 
-    public function delete() {
+    public function delete() {  // /v1/delete-product
         $id = request()->id;
 
         $findProduct = DB::table('products')->where('id', $id)->first();

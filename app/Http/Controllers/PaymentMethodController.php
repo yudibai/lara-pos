@@ -62,12 +62,12 @@ class PaymentMethodController extends Controller
                     DB::table('payment_method')
                         ->where('id', request()->id)
                         ->update([
-                            'user_id'               => request()->user_id,
+                            'user_id'               => auth()->user()->id,
                             'methods'               => json_decode($methods),
                             'updated_at'            => Carbon::now()->toDateTimeString(),
                         ]);
 
-                    $log->store("customer", 2, request()->id, request()->user_id, Carbon::now()->toDateTimeString());
+                    $log->store("customer", 2, request()->id, auth()->user()->id, Carbon::now()->toDateTimeString());
                 } else {
                     return response()->json([
                         'status'    =>  false,
@@ -80,14 +80,14 @@ class PaymentMethodController extends Controller
                 if ($routeName == "create-customer") {
                     // insert to table
                     DB::table('payment_method')->insert([
-                        'user_id'               => request()->user_id,
+                        'user_id'               => auth()->user()->id,
                         'methods'               => json_decode($methods),
                         'created_at'            => Carbon::now()->toDateTimeString(),
                     ]);
                     $lastId = DB::getPdo()->lastInsertId();
     
                     $log = new LogController();
-                    $log->store("customer", 1, $lastId, request()->user_id, Carbon::now()->toDateTimeString());
+                    $log->store("customer", 1, $lastId, auth()->user()->id, Carbon::now()->toDateTimeString());
                 } else {
                     return response()->json([
                         'status'    =>  false,
@@ -120,7 +120,7 @@ class PaymentMethodController extends Controller
             
             if ($hasDelete == 1) {
                 $log = new LogController();
-                $log->store("customer", 3, $id, request()->user_id, Carbon::now()->toDateTimeString());
+                $log->store("customer", 3, $id, auth()->user()->id, Carbon::now()->toDateTimeString());
             }
             return response()->json([
                 'status'    =>  true,

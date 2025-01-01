@@ -13,6 +13,8 @@ return new class extends Migration
     {
         Schema::create('place', function (Blueprint $table) {
             $table->id();
+            $table->integer('owner_id')->nullable();
+            $table->tinyInteger('is_owner')->nullable();
             $table->string('name')->nullable();
             $table->string('phone')->nullable();
             $table->text('address')->nullable();

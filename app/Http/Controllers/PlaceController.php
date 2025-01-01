@@ -45,6 +45,7 @@ class PlaceController extends Controller
                     DB::table('place')
                         ->where('id', request()->id)
                         ->update([
+                            'is_owner'              => 1,
                             'name'                  => request()->name,
                             'phone'                 => request()->phone,
                             'address'               => request()->address,
@@ -83,7 +84,6 @@ class PlaceController extends Controller
                         'image'                 => request()->image,
                         'created_at'            => Carbon::now()->toDateTimeString(),
                     ]);
-                    var_dump($place);
                     $lastId = DB::getPdo()->lastInsertId();
                     $log->store("place", 1, $lastId, auth()->user()->id, Carbon::now()->toDateTimeString());
 
@@ -135,15 +135,11 @@ class PlaceController extends Controller
     //     $lastId = DB::getPdo()->lastInsertId();
 
     //     $log = new LogController();
-    //     $log->store("place", 1, $lastId, request()->user_id, Carbon::now()->toDateTimeString());
+    //     $log->store("place", 1, $lastId, auth()->user()->id, Carbon::now()->toDateTimeString());
     // }
 
-    public function storeById($id) {
-        $idHas = $id;
-        if (request()->id != null && request()->id > 0) {
-            $idHas = request()->id;
-        }
-        $getPlaceById = DB::table('place')->where('id', $idHas)->first();
+    public function storeById() {
+        $getPlaceById = DB::table('place')->where('id', request()->place_id)->first();
         return response()->json([
             'status'    =>  true,
             'message'   =>  "Berhasil mendapatkan data tempat",
@@ -160,7 +156,7 @@ class PlaceController extends Controller
             
             if ($hasDelete == 1) {
                 $log = new LogController();
-                $log->store("place", 3, $id, request()->user_id, Carbon::now()->toDateTimeString());
+                $log->store("place", 3, $id, request()->owner_id, Carbon::now()->toDateTimeString());
             }
             return response()->json([
                 'status'    =>  true,
@@ -173,8 +169,5 @@ class PlaceController extends Controller
                 'message'   =>  'Data pelanggan tidak ditemukan',
             ], 422);
         }
-
-
-
     }
 }

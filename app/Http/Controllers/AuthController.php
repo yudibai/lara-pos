@@ -56,15 +56,28 @@ class AuthController extends Controller
         $credentials = request(['email', 'password']);
         
         if ($credentials["email"] == null || $credentials["password"] == null || $credentials["email"] == "" || $credentials["password"] == "") {
-            return ApiResponseClass::sendResponse('PLEASE_COMPLETE_THE_EMAIL_AND_PASSWORD_FORM', 401);
+            // return ApiResponseClass::sendResponse('Tolong lengkapi form email dan password', 401);
+            return response()->json([
+                'status'    =>  false,
+                'message'   =>  "Tolong lengkapi form email dan password",
+                'data'      =>  $user
+            ], 401);
         }
         
         $findEmail = DB::table('users')->where('email', $credentials["email"])->first();
         if ($findEmail == null) {
-            return ApiResponseClass::sendResponse('USER_EMAIL_NOT_FOUND', 401);
+            // return ApiResponseClass::sendResponse('User email tidak ditemukan', 401);
+            return response()->json([
+                'status'    =>  false,
+                'message'   =>  "User email tidak ditemukan",
+            ], 401);
         } else {
             if (!Hash::check($credentials["password"], $findEmail->password)) {
-                return ApiResponseClass::sendResponse('USER_PASSWORD_INCORRECT', 401);
+                // return ApiResponseClass::sendResponse('User password anda salah', 401);
+                return response()->json([
+                    'status'    =>  false,
+                    'message'   =>  "User password anda salah",
+                ], 401);
             }
             // if ($findEmail->email_verified == 0 || $findEmail->email_verified == null) {
             //     return ApiResponseClass::sendResponse('USER_EMAIL_NOT_VERIFIED', 401);
@@ -131,7 +144,6 @@ class AuthController extends Controller
     public function delete()
     {
         $findUser = DB::table('users')->wherel('id', request()->id)->first();
-        var_dump($findUser);
         if ($findUser != null) {
             DB::table('users')
                 ->where('id', request()->id)
@@ -164,11 +176,14 @@ class AuthController extends Controller
         $encryptedObject = Crypt::encrypt(serialize($user));
 
         return response()->json([
-            'enc'           =>  $encryptedObject,
-            'user'          =>  $user,
-            'access_token'  =>  $token,
-            'token_type'    =>  'bearer',
-            'expires_in'    =>  auth()->factory()->getTTL() * 60
+            'status'   => true,
+            'data'   => [
+                'enc'           =>  $encryptedObject,
+                'user'          =>  $user,
+                'access_token'  =>  $token,
+                'token_type'    =>  'bearer',
+                'expires_in'    =>  auth()->factory()->getTTL() * 0.5
+            ]
         ]);
     }
 }

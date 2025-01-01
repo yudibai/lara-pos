@@ -10,7 +10,7 @@ class Product extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
+        'owner_id',
         'product_category_id',
         'name',
         'price',
@@ -19,5 +19,6 @@ class Product extends Model
         'plu',
         'capital',
         'description',
+        'places_id',
     ];
 }
